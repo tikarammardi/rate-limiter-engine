@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"rate-limiter-engine/internal/limiter"
 	"syscall"
 
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"rate-limiter-engine/github.com/tikarammardi/rate-limiter-engine/proto"
 )
@@ -27,6 +29,19 @@ func (s *server) Check(ctx context.Context, req *proto.LimitRequest) (*proto.Lim
 }
 
 func main() {
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "127.0.0.1:6379",
+		Password: os.Getenv("REDIS_PASSWORD"),
+	})
+
+	pong, err := rdb.Ping(context.Background()).Result()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("PING: ", pong)
+
 	// --- 1. CONFIGURATION ---
 	// In a real app, these might come from environment variables
 	const (
@@ -38,7 +53,8 @@ func main() {
 	// --- 2. DEPENDENCY INJECTION ---
 	// To switch to Redis, you would replace this line with:
 	// store := limiter.NewRedisStore(redisClient, refillRate, capacity)
-	store := limiter.NewMemoryStore(refillRate, capacity)
+	//store := limiter.NewMemoryStore(refillRate, capacity)
+	store := limiter.NewRedisStore(rdb, refillRate, capacity)
 
 	g := limiter.NewGuard(store)
 

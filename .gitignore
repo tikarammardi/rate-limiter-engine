@@ -1,3 +1,5 @@
 .idea
 proto/*.pb.go
 *.pb.go
+.envrc
+.env

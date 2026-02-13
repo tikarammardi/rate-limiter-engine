@@ -17,7 +17,7 @@ func main() {
 	client := proto.NewRateLimiterClient(conn)
 
 	var wg sync.WaitGroup
-	numRequests := 10
+	numRequests := 100
 	userID := "stress_user"
 
 	log.Printf("Starting stress test with %d concurrent requests...", numRequests)
