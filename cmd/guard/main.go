@@ -20,16 +20,16 @@ type server struct {
 }
 
 func (s *server) Check(ctx context.Context, req *proto.LimitRequest) (*proto.LimitResponse, error) {
-	allowed := s.guard.Allow(req.UserId)
+	allowed := s.guard.Allow(ctx, req.UserId)
 
 	return &proto.LimitResponse{
-		Allowed:   allowed,
-		Remaining: 0,
+		Allowed: allowed,
 	}, nil
 }
 
 func main() {
-	g := limiter.NewGuard(100)
+	store := limiter.NewMemoryStore(10, 50) // 10tokens/sec, capacity of 50 for brusts
+	g := limiter.NewGuard(store)
 
 	grpcServer := grpc.NewServer()
 	proto.RegisterRateLimiterServer(grpcServer, &server{
