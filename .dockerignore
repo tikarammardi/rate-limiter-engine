@@ -1,0 +1,5 @@
+.git
+.gitignore
+charts
+deployments
+.envrc

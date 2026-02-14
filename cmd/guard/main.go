@@ -29,9 +29,15 @@ func (s *server) CheckLimit(ctx context.Context, req *proto.LimitRequest) (*prot
 
 func main() {
 	// 1. REDIS SETUP
+	redisAddr := os.Getenv("REDIS_ADDR")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	if redisAddr == "" {
+		redisAddr = "127.0.0.1:6379"
+	}
+
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "127.0.0.1:6379",
-		Password: os.Getenv("REDIS_PASSWORD"),
+		Addr:     redisAddr,
+		Password: redisPassword,
 	})
 
 	// Verify connection
@@ -41,9 +47,7 @@ func main() {
 
 	// 2. CONFIGURATION & LOGGER
 	const (
-		port       = ":50051"
-		refillRate = 10.0
-		capacity   = 50.0
+		port = ":50051"
 	)
 
 	configStore := limiter.NewConfigStore(rdb)

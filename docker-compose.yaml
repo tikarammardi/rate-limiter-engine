@@ -1,0 +1,14 @@
+services:
+  limiter-redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rate-limiter-engine:
+    build: .
+    environment:
+      - REDIS_ADDR=limiter-redis:6379
+    ports:
+      - "50051:50051"
+    depends_on:
+      - limiter-redis
