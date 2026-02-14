@@ -199,6 +199,90 @@ make docker-down    # Tear down
 
 ---
 
+## 🔌 How to Plug It Into Your Service
+
+The rate limiter runs as a **standalone gRPC service**. Any service can call it before processing requests.
+
+### Go
+
+```go
+conn, _ := grpc.Dial("rate-limiter-service:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+client := proto.NewRateLimiterClient(conn)
+
+resp, err := client.CheckLimit(ctx, &proto.LimitRequest{UserId: "user-123"})
+if err != nil || !resp.Allowed {
+    return errors.New("rate limit exceeded!")
+}
+```
+
+### Python
+
+```python
+import grpc
+import rate_limit_pb2
+import rate_limit_pb2_grpc
+
+channel = grpc.insecure_channel("rate-limiter-service:50051")
+client = rate_limit_pb2_grpc.RateLimiterStub(channel)
+
+response = client.CheckLimit(rate_limit_pb2.LimitRequest(user_id="user-123"))
+if not response.allowed:
+    raise Exception("Rate limit exceeded!")
+```
+
+### Node.js
+
+```javascript
+const grpc = require("@grpc/grpc-js");
+const protoLoader = require("@grpc/proto-loader");
+
+const packageDef = protoLoader.loadSync("rate_limit.proto");
+const proto = grpc.loadPackageDefinition(packageDef).ratelimiter;
+
+const client = new proto.RateLimiter(
+  "rate-limiter-service:50051",
+  grpc.credentials.createInsecure()
+);
+
+client.CheckLimit({ user_id: "user-123" }, (err, response) => {
+  if (err || !response.allowed) {
+    throw new Error("Rate limit exceeded!");
+  }
+});
+```
+
+### cURL (via grpcurl)
+
+```bash
+grpcurl -plaintext \
+  -d '{"user_id": "user-123"}' \
+  rate-limiter-service:50051 ratelimiter.RateLimiter/CheckLimit
+```
+
+### Generate Client Stubs
+
+Use `protoc` to generate client code for your language:
+
+```bash
+# Python
+pip install grpcio grpcio-tools
+python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/rate_limit.proto
+
+# Node.js (uses proto file directly, no codegen needed)
+npm install @grpc/grpc-js @grpc/proto-loader
+
+# Java
+protoc --java_out=. --grpc-java_out=. proto/rate_limit.proto
+```
+
+### Configure Per-User Limits
+
+```bash
+redis-cli HSET "ratelimit:config:user-123" rate 100 capacity 1000
+```
+
+---
+
 ## 🔧 Development
 
 ### Regenerate Protobuf Files
