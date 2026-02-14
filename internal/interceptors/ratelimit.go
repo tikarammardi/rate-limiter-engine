@@ -38,7 +38,9 @@ func UnaryRateLimitInterceptor(g *limiter.Guard, configStore *limiter.ConfigStor
 			"x-ratelimit-remaining", strconv.Itoa(res.Remaining),
 			"x-ratelimit-reset", strconv.FormatInt(res.Reset, 10),
 		)
-		grpc.SetHeader(ctx, header)
+		if err := grpc.SetHeader(ctx, header); err != nil {
+			return nil, err
+		}
 
 		// 4. Block if not allowed
 		if !res.Allowed {

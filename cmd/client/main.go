@@ -13,11 +13,15 @@ import (
 
 func main() {
 	// 1. Establish a connection to the server
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("failed to close connection: %v", err)
+		}
+	}()
 	c := proto.NewRateLimiterClient(conn)
 
 	// 2. Simulate 5 quick requests for "user_123"
