@@ -26,7 +26,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
-		r, err := c.Check(ctx, &proto.LimitRequest{UserId: userID, Key: "login"})
+		r, err := c.CheckLimit(ctx, &proto.LimitRequest{UserId: userID})
 		if err != nil {
 			log.Fatalf("could not check: %v", err)
 		}

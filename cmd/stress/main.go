@@ -30,7 +30,7 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 
-			resp, err := client.Check(ctx, &proto.LimitRequest{UserId: userID})
+			resp, err := client.CheckLimit(ctx, &proto.LimitRequest{UserId: userID})
 			if err != nil {
 				log.Printf("Worker %d failed: %v", id, err)
 				return

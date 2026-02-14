@@ -4,30 +4,15 @@ option go_package = "github.com/tikarammardi/rate-limiter-engine/proto;proto";
 package ratelimiter;
 
 service RateLimiter {
-  //TODO: Check if user is allowed to perform an action
-  rpc Check(LimitRequest) returns (LimitResponse);
-
-  // TODO Stream analytics data to the Analyst Service
- rpc StreamAnalytics(stream AnalyticsEvent) returns (AnalyticsSummary);
+  // We define the RPC. The Interceptor will handle the "ResourceExhausted"
+  // error and inject the X-RateLimit headers automatically.
+  rpc CheckLimit(LimitRequest) returns (LimitResponse);
 }
 
 message LimitRequest {
   string user_id = 1;
-  string key = 2;
 }
 
 message LimitResponse {
   bool allowed = 1;
-  int32 remaining = 2;
-}
-
-
-message AnalyticsEvent {
-  string user_id = 1;
-  bool allowed = 2;
-  int64 timestamp = 3;
-}
-
-message AnalyticsSummary {
-  uint64 total_processed = 1;
 }

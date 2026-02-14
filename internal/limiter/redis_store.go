@@ -2,43 +2,38 @@ package limiter
 
 import (
 	"context"
-	_ "embed" // Used to load the Lua script file if you prefer
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
-// luaTokenBucket is the script that runs atomically inside Redis.
-// It calculates refills and subtracts tokens in one step.
 const luaTokenBucket = `
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
 local rate = tonumber(ARGV[2])
 local capacity = tonumber(ARGV[3])
-local requested = tonumber(ARGV[4])
 
--- 1. Get current state
 local bucket = redis.call('HMGET', key, 'tokens', 'last_time')
 local tokens = tonumber(bucket[1]) or capacity
 local last_time = tonumber(bucket[2]) or now
 
--- 2. Calculate refill
 local delta = math.max(0, now - last_time)
-local refill = delta * rate
-tokens = math.min(capacity, tokens + refill)
+tokens = math.min(capacity, tokens + (delta * rate))
 
--- 3. Check and subtract
 local allowed = 0
-if tokens >= requested then
-    tokens = tokens - requested
+if tokens >= 1 then
+    tokens = tokens - 1
     allowed = 1
 end
 
--- 4. Save and set expiry (1 minute)
 redis.call('HMSET', key, 'tokens', tokens, 'last_time', now)
 redis.call('EXPIRE', key, 60)
 
-return allowed
+-- Calculate reset: how many seconds until the bucket is full?
+local missing = capacity - tokens
+local reset_in = math.ceil(missing / rate)
+
+return {allowed, math.floor(tokens), now + reset_in}
 `
 
 type RedisStore struct {
@@ -48,22 +43,22 @@ type RedisStore struct {
 }
 
 func NewRedisStore(rdb *redis.Client, rate float64, cap float64) *RedisStore {
-	return &RedisStore{
-		rdb:  rdb,
-		rate: rate,
-		cap:  cap,
-	}
+	return &RedisStore{rdb: rdb, rate: rate, cap: cap}
 }
 
-func (r *RedisStore) Take(ctx context.Context, key string, amount int) (bool, error) {
-	// We pass the current Unix time so the script is deterministic
+func (r *RedisStore) Take(ctx context.Context, key string, amount int) (Result, error) {
 	now := time.Now().Unix()
 
-	result, err := r.rdb.Eval(ctx, luaTokenBucket, []string{key}, now, r.rate, r.cap, amount).Result()
+	// Lua returns an array: [allowed, remaining, reset_timestamp]
+	res, err := r.rdb.Eval(ctx, luaTokenBucket, []string{key}, now, r.rate, r.cap).Result()
 	if err != nil {
-		return false, err
+		return Result{Allowed: true}, err // Fail-open
 	}
 
-	// Redis returns 1 for true, 0 for false
-	return result.(int64) == 1, nil
+	vals := res.([]interface{})
+	return Result{
+		Allowed:   vals[0].(int64) == 1,
+		Remaining: int(vals[1].(int64)),
+		Reset:     vals[2].(int64),
+	}, nil
 }

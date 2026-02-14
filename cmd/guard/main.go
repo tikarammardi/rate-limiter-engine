@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
+	"rate-limiter-engine/internal/interceptors" // Ensure this path is correct
 	"rate-limiter-engine/internal/limiter"
 	"syscall"
 
@@ -15,60 +16,56 @@ import (
 	"rate-limiter-engine/github.com/tikarammardi/rate-limiter-engine/proto"
 )
 
-// server wraps our business logic to satisfy the gRPC interface
 type server struct {
 	proto.UnimplementedRateLimiterServer
-	guard *limiter.Guard
 }
 
-// Check is the gRPC method called by clients
-func (s *server) Check(ctx context.Context, req *proto.LimitRequest) (*proto.LimitResponse, error) {
-	// Our Guard logic remains the same regardless of the storage backend
-	allowed := s.guard.Allow(ctx, req.UserId)
-	return &proto.LimitResponse{Allowed: allowed}, nil
+// CheckLimit now only contains business logic because the Interceptor
+// handles the Allow/Block logic before this is even reached.
+func (s *server) CheckLimit(ctx context.Context, req *proto.LimitRequest) (*proto.LimitResponse, error) {
+	return &proto.LimitResponse{Allowed: true}, nil
 }
 
 func main() {
-
+	// 1. REDIS SETUP
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "127.0.0.1:6379",
 		Password: os.Getenv("REDIS_PASSWORD"),
 	})
 
-	pong, err := rdb.Ping(context.Background()).Result()
-	if err != nil {
-		log.Fatal(err)
+	// Verify connection
+	if _, err := rdb.Ping(context.Background()).Result(); err != nil {
+		log.Fatalf("❌ Redis unreachable: %v", err)
 	}
 
-	fmt.Println("PING: ", pong)
-
-	// --- 1. CONFIGURATION ---
-	// In a real app, these might come from environment variables
+	// 2. CONFIGURATION & LOGGER
 	const (
 		port       = ":50051"
-		refillRate = 10.0 // tokens per second (600 per minute)
-		capacity   = 50.0 // allow bursts of 50 requests
+		refillRate = 10.0
+		capacity   = 50.0
 	)
 
-	// --- 2. DEPENDENCY INJECTION ---
-	// To switch to Redis, you would replace this line with:
-	// store := limiter.NewRedisStore(redisClient, refillRate, capacity)
-	//store := limiter.NewMemoryStore(refillRate, capacity)
+	// Using JSON handler for structured logging (Production Standard)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// 3. DEPENDENCY INJECTION
 	store := limiter.NewRedisStore(rdb, refillRate, capacity)
+	g := limiter.NewGuard(store, logger)
 
-	g := limiter.NewGuard(store)
-
-	// --- 3. gRPC SERVER SETUP ---
+	// 4. gRPC SERVER SETUP with INTERCEPTOR
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("❌ Failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
-	proto.RegisterRateLimiterServer(s, &server{guard: g})
+	// Register the RateLimit Interceptor here! 🛡️
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(interceptors.UnaryRateLimitInterceptor(g)),
+	)
 
-	// --- 4. GRACEFUL SHUTDOWN ---
-	// This ensures we don't drop requests when stopping the service
+	proto.RegisterRateLimiterServer(s, &server{})
+
+	// 5. RUN & GRACEFUL SHUTDOWN
 	go func() {
 		log.Printf("🛡️ Guard service listening on %s", port)
 		if err := s.Serve(lis); err != nil {
@@ -76,7 +73,6 @@ func main() {
 		}
 	}()
 
-	// Wait for control-c or terminate signal
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
