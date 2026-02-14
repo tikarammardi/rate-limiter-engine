@@ -12,6 +12,11 @@ type UserConfig struct {
 	Capacity float64 `json:"capacity"`
 }
 
+const (
+	refillRate = 10.0
+	capacity   = 50.0
+)
+
 type ConfigStore struct {
 	rdb *redis.Client
 }
@@ -29,5 +34,5 @@ func (s *ConfigStore) GetUserConfig(ctx context.Context, userId string) UserConf
 			return cfg
 		}
 	}
-	return UserConfig{Rate: 10, Capacity: 50}
+	return UserConfig{Rate: refillRate, Capacity: capacity}
 }
