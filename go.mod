@@ -1,4 +1,4 @@
-module rate-limiter-engine
+module rguard
 
 go 1.24.0
 

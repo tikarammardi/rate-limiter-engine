@@ -8,7 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"rate-limiter-engine/proto"
+	"rguard/proto"
 )
 
 func main() {

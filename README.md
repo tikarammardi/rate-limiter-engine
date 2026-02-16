@@ -1,6 +1,6 @@
-# Rate Limiter Engine
+# rguard
 
-A high-performance, rate limiting service built in Go, powered by Redis and gRPC. This engine implements the Token Bucket algorithm with microsecond precision and horizontal scalability.
+A high-performance, distributed rate limiting service built in Go, powered by Redis and gRPC. rguard implements the Token Bucket algorithm with microsecond precision and horizontal scalability.
 
 ## 🚀 Features
 
@@ -32,7 +32,7 @@ The project is designed with a strict separation of concerns:
 
 ### Option 1: Using Docker Compose (Recommended)
 
-The easiest way to run the full stack (Redis + Rate Limiter Engine):
+The easiest way to run the full stack (Redis + rguard):
 
 ```bash
 # Start all services
@@ -206,7 +206,7 @@ The rate limiter runs as a **standalone gRPC service**. Any service can call it 
 ### Go
 
 ```go
-conn, _ := grpc.Dial("rate-limiter-service:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+conn, _ := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 client := proto.NewRateLimiterClient(conn)
 
 resp, err := client.CheckLimit(ctx, &proto.LimitRequest{UserId: "user-123"})
@@ -222,7 +222,7 @@ import grpc
 import rate_limit_pb2
 import rate_limit_pb2_grpc
 
-channel = grpc.insecure_channel("rate-limiter-service:50051")
+channel = grpc.insecure_channel("localhost:50051")
 client = rate_limit_pb2_grpc.RateLimiterStub(channel)
 
 response = client.CheckLimit(rate_limit_pb2.LimitRequest(user_id="user-123"))
@@ -240,7 +240,7 @@ const packageDef = protoLoader.loadSync("rate_limit.proto");
 const proto = grpc.loadPackageDefinition(packageDef).ratelimiter;
 
 const client = new proto.RateLimiter(
-  "rate-limiter-service:50051",
+  "localhost:50051",
   grpc.credentials.createInsecure()
 );
 
@@ -256,7 +256,7 @@ client.CheckLimit({ user_id: "user-123" }, (err, response) => {
 ```bash
 grpcurl -plaintext \
   -d '{"user_id": "user-123"}' \
-  rate-limiter-service:50051 ratelimiter.RateLimiter/CheckLimit
+  localhost:50051 ratelimiter.RateLimiter/CheckLimit
 ```
 
 ### Generate Client Stubs

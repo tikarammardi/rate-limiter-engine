@@ -8,7 +8,7 @@ BIN_DIR    := bin
 BIN        := $(BIN_DIR)/$(APP_NAME)
 
 # Docker
-IMAGE_NAME := rate-limiter-guard
+IMAGE_NAME := rguard
 COMPOSE    := docker compose
 
 # Proto generation

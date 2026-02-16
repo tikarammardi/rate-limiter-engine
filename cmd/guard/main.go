@@ -7,14 +7,15 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"rate-limiter-engine/internal/interceptors" // Ensure this path is correct
-	"rate-limiter-engine/internal/limiter"
+	"rguard/internal/interceptors" // Ensure this path is correct
+	"rguard/internal/limiter"
 	"syscall"
+
+	"rguard/proto"
 
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"rate-limiter-engine/proto"
 )
 
 type server struct {

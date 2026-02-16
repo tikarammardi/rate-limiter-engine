@@ -2,7 +2,7 @@ package interceptors
 
 import (
 	"context"
-	"rate-limiter-engine/internal/limiter"
+	"rguard/internal/limiter"
 	"strconv"
 
 	"google.golang.org/grpc"
